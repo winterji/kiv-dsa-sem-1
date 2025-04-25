@@ -1,0 +1,29 @@
+<html>
+<head>
+    <title>Monitor</title>
+</head>
+<body>
+    <h1>Monitor of distributed nodes</h1>
+    <p>
+        {% if nodes %}
+            There are some reachable nodes.
+        {% else %}
+            No nodes reachable.
+        {% endif %}
+    </p>
+    <h2>Registered ndoes:</h2>
+    <ul>
+        {% for node, ip in nodes_ip.items() %}
+            <li>{{ node }}: {{ip}}</li>
+        {% endfor %}
+    </ul>
+    <h2>Node Colours:</h2>
+    <ul>
+        {% for node, status in nodes.items() %}
+            <li>{{ node }}: {{ status }}</li>
+        {% endfor %}
+    </ul>
+
+
+</body>
+</html>
