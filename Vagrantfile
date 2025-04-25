@@ -19,23 +19,23 @@ unless Vagrant.has_plugin?("vagrant-docker-compose")
 end
 
 # Names of Docker images built:
-BACKEND_IMAGE  = "ds/demo-3/backend:0.1"
-FRONTEND_IMAGE = "ds/demo-3/frontend:0.1"
+NODE_IMAGE  = "dsa/sem-1/node:0.1"
+MONITOR_IMAGE = "dsa/sem-1/monitor:0.1"
 
 # Node definitions
-FRONTEND  = { :name => "frontend-lb",
+MONITOR  = { :name => "monitor",  # name of the monitor node
               :ipaddr => "10.0.1.10",
-              :image => FRONTEND_IMAGE,
-              :lb_name => "backend-lb",  # NGINX upstream load-balancing group
-              :lb_config_file => "frontend/config/backend-upstream.conf" # generated config.
+              :image => MONITOR_IMAGE,
+              # :lb_name => "node-lb",  # NGINX upstream load-balancing group
+              # :lb_config_file => "monitor/config/backend-upstream.conf" # generated config.
             }
-BACKENDS  = { :nameprefix => "backend-",  # backend nodes get names: backend-1, backend-2, etc.
+NODES  = { :nameprefix => "node-",  # backend nodes get names: backend-1, backend-2, etc.
               :subnet => "10.0.1.",
               :ip_offset => 100,  # backend nodes get IP addresses: 10.0.1.101, .102, .103, etc
-              :image => BACKEND_IMAGE,
-              :port => 5000 }
+              :image => NODE_IMAGE,
+             }
 # Number of backends to start:
-BACKENDS_COUNT = 5
+NODES_COUNT = 6
 
 # Common configuration
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
@@ -44,42 +44,31 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.trigger.before :up, type: :command do |trigger|
     trigger.name = "Build docker images and configuration files"
     trigger.ruby do |env, machine|
-      # --- start of Ruby script ---
-      # Build load balancer configuration file:
-      puts "Building frontend LB configuration."
-      File.delete(FRONTEND[:lb_config_file]) if File.exist?(FRONTEND[:lb_config_file])
-      cfile = File.new(FRONTEND[:lb_config_file], "w")
-      cfile.puts "upstream #{FRONTEND[:lb_name]} {"
-      (1..BACKENDS_COUNT).each do |i|
-        node_name = "#{BACKENDS[:nameprefix]}#{i}"
-        cfile.puts "    server #{node_name}:#{BACKENDS[:port]} weight=1;"
-      end
-      cfile.puts "}"
-      cfile.close
       # Build image for backend nodes:
-      puts "Building backend node image:"
-      `docker build backend -t "#{BACKEND_IMAGE}"`
+      puts "Building node image:"
+      `docker build node -t "#{NODE_IMAGE}"`
       # Build image for the frontend node:
-      puts "Building frontend node image:"
-      `docker build frontend -t "#{FRONTEND_IMAGE}"`
+      puts "Building monitor image:"
+      `docker build monitor -t "#{MONITOR_IMAGE}"`
       # --- end of Ruby script ---
     end
   end
 
-  config.vm.synced_folder ".", "/vagrant", type: "rsync", rsync__exclude: ".*/"
+  # config.vm.synced_folder ".", "/vagrant", type: "rsync", rsync__exclude: [".*/"]
+  config.vm.synced_folder ".", "/vagrant", type: "docker"
   config.ssh.insert_key = false
 
-  # Definition of N backends
-  (1..BACKENDS_COUNT).each do |i|
-    node_ip_addr = "#{BACKENDS[:subnet]}#{BACKENDS[:ip_offset] + i}"
-    node_name = "#{BACKENDS[:nameprefix]}#{i}"
+  # Definition of N nodes
+  (1..NODES_COUNT).each do |i|
+    node_ip_addr = "#{NODES[:subnet]}#{NODES[:ip_offset] + i}"
+    node_name = "#{NODES[:nameprefix]}#{i}"
     # Definition of BACKEND
     config.vm.define node_name do |s|
       s.vm.network "private_network", ip: node_ip_addr
       s.vm.hostname = node_name
       s.vm.provider "docker" do |d|
-        d.build_dir = "backend"
-        d.build_args = ["-t", "#{BACKENDS[:image]}"]
+        d.build_dir = "node"
+        d.build_args = ["-t", "#{NODES[:image]}"]
         d.name = node_name
         d.has_ssh = true
       end
@@ -87,20 +76,20 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     end
   end
 
-  # Definition of FRONTEND
-  config.vm.define FRONTEND[:name] do |s|
-    s.vm.network "private_network", ip: FRONTEND[:ipaddr]
-    # Forward port 80 in the container to port 8080 on the host machine. Listen on 0.0.0.0 (all interfaces)
-    s.vm.network "forwarded_port", guest: 80, host: 8080, host_ip: "0.0.0.0"
-    s.vm.hostname = FRONTEND[:name]
+  # Definition of MONITOR
+  config.vm.define MONITOR[:name] do |s|
+    s.vm.network "private_network", ip: MONITOR[:ipaddr]
+    # Forward port 5000 in the container to port 5000 on the host machine. Listen on 0.0.0.0 (all interfaces)
+    s.vm.network "forwarded_port", guest: 5000, host: 8080, host_ip: "0.0.0.0"
+    s.vm.hostname = MONITOR[:name]
     s.vm.provider "docker" do |d|
-      d.build_dir = "frontend"
-      d.build_args = ["-t", "#{FRONTEND[:image]}"]
-      d.name = FRONTEND[:name]
+      d.build_dir = "monitor"
+      d.build_args = ["-t", "#{MONITOR[:image]}"]
+      d.name = MONITOR[:name]
       d.has_ssh = true
-      d.env = { "STARTUP_DELAY": "60" } # minor hack to ensure backend is already running when the frontend wakes up
+      d.env = { "STARTUP_DELAY": "10" } # minor hack to ensure backend is already running when the frontend wakes up
     end
-    s.vm.post_up_message = "Node #{FRONTEND[:name]} up and running. You can access the service at http://localhost:8080/service-api/find/<service>"
+    s.vm.post_up_message = "Node #{MONITOR[:name]} up and running. You can access the service at http://localhost:8080/service-api/find/<service>"
   end
 
 end
