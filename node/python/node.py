@@ -69,19 +69,21 @@ def send_hello():
 
 def send_ping():
     while True:
-        # send ping to every node in the network
+        # send ping to every node in the network via broadcast
         ping_msg = b"ping " + NODE_ID.encode('utf-8')
+        send_msg(ping_msg, '10.0.1.255')
         for node_id in known_ids:
             if node_id == NODE_ID:
                 continue
-            send_msg(ping_msg, known_ids[node_id])
             pings.append({"node_id": node_id, "time": time()})
+        
         sleep(PING_PERIOD)
 
 def recv_ping(node_id, recvFrom):
     # receive ping from other nodes
     # send pong to the node that sent the ping
     if node_id != NODE_ID:
+        node_discovered(node_id, recvFrom[0])
         pong_msg = b"pong " + NODE_ID.encode('utf-8')
         send_msg(pong_msg, recvFrom[0])
         print(f"Received ping from {node_id}, sending pong")
@@ -90,12 +92,14 @@ def recv_ping(node_id, recvFrom):
         return
 
 def recv_pong(node_id, recvFrom):
-    for ping in pings:
-        if ping["node_id"] == node_id:
-            # remove from pings
-            print(f"Received pong from {node_id}, removing from pings")
-            pings.remove(ping)
-            break
+    if node_id in known_ids:
+        for ping in pings:
+            if ping["node_id"] == node_id:
+                # remove from pings
+                print(f"Received pong from {node_id}, removing from pings")
+                pings.remove(ping)
+                break
+    node_discovered(node_id, recvFrom[0])
 
 def recv_hello(node_id, recvFrom):
     read_known_ids()
@@ -214,12 +218,16 @@ def determine_color():
     # sort known_ids
     # sorted_ids = sorted(known_ids, key=lambda d: int(d["node_id"].split("-")[1]))
     sorted_ids = sorted(known_ids)
+    print(f"Sorted IDs: {sorted_ids}")
     read_known_ids_finish()
     N = len(sorted_ids)
     num_red = math.ceil(N / 3)
     my_index = sorted_ids.index(NODE_ID)
-    current_state = 'red' if my_index < num_red else 'green'
-    print(f"New state: {current_state}")
+    new_state = 'red' if my_index < num_red else 'green'
+    if new_state != current_state:
+        current_state = new_state
+        send_state(current_state)
+        print(f"New state: {current_state}")
     return current_state
 
 def send_state(state):
@@ -236,11 +244,11 @@ if __name__ == "__main__":
     init_network()
     current_state = determine_color()
     print(f"Initial state: {current_state}")
+    send_state(current_state)
     while True:
-        send_state(current_state)
         sleep(10)
-        # current_state = random.choice(states)
-        # send_state(current_state)
-        # print("heelo")
+        print(f"Current state: {current_state}")
+        send_state(current_state)
+
 
 # EOF

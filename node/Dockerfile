@@ -10,6 +10,6 @@ RUN pip3 install requests
 
 COPY python /opt/node
 
-# CMD /usr/bin/python3 /opt/node/node.py
+CMD /usr/bin/python3 /opt/node/node.py
 
 # EOF
