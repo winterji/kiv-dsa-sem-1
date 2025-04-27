@@ -35,7 +35,7 @@ NODES  = { :nameprefix => "node-",  # backend nodes get names: backend-1, backen
               :image => NODE_IMAGE,
              }
 # Number of backends to start:
-NODES_COUNT = 6
+NODES_COUNT = (ENV['NODES'] || 6).to_i
 
 # Common configuration
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
@@ -79,7 +79,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # Definition of MONITOR
   config.vm.define MONITOR[:name] do |s|
     s.vm.network "private_network", ip: MONITOR[:ipaddr]
-    # Forward port 5000 in the container to port 5000 on the host machine. Listen on 0.0.0.0 (all interfaces)
+    # Forward port 5000 in the container to port 8080 on the host machine. Listen on 0.0.0.0 (all interfaces)
     s.vm.network "forwarded_port", guest: 5000, host: 8080, host_ip: "0.0.0.0"
     s.vm.hostname = MONITOR[:name]
     s.vm.provider "docker" do |d|
