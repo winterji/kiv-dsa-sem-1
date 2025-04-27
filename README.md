@@ -11,7 +11,7 @@ If nodes count is not supplied, it will default to 6.
 ## Connected to network
 Each node sends "hello" message using UDP broadcast whenever it connects to network. All nodes who receive the message save the new node to their list of known nodes and respond with "nodes" message that contains the list of all the known nodes to them at the time. The new node than receives information about all the nodes already in the network and creates its own list.
 
-## Stay in touch
+## Stay in touch
 All nodes periodically check status of the network. They send ping message using UDP broadcast and reply with pong message whenever ping is received. Each node stores time of the last ping for all other known nodes, so they can recognize a node is down when timeout is exceeded.
 
 ## Monitor
